@@ -1,0 +1,596 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+
+:root {
+    --bg: #f4f7f2;
+    --surface: #ffffff;
+    --surface-soft: #f8faf7;
+
+    --text: #17221a;
+    --text-muted: #718074;
+
+    --green: #2f7d46;
+    --green-dark: #1f5b31;
+    --green-light: #e5f2e7;
+
+    --blue: #3d8fd1;
+    --blue-light: #e6f3fc;
+
+    --orange: #e68a35;
+    --orange-light: #fff0df;
+
+    --border: #e2e9e1;
+
+    --shadow:
+        0 10px 30px rgba(31, 60, 39, 0.07);
+
+    --radius-lg: 22px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
+}
+
+
+/* ================= RESET ================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    min-height: 100vh;
+
+    font-family: "DM Sans", sans-serif;
+
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(72, 126, 77, 0.08),
+            transparent 35%
+        ),
+        var(--bg);
+
+    color: var(--text);
+
+    line-height: 1.5;
+}
+
+
+/* ================= HEADER ================= */
+
+.header {
+    padding: 42px 6% 28px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #eef7ed,
+            #f7faf5
+        );
+
+    border-bottom: 1px solid var(--border);
+}
+
+.header-content {
+    max-width: 1250px;
+    margin: auto;
+
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+
+    gap: 30px;
+}
+
+.eyebrow {
+    margin-bottom: 7px;
+
+    color: var(--green);
+
+    font-size: 0.72rem;
+    font-weight: 800;
+
+    letter-spacing: 0.14em;
+}
+
+h1,
+h2,
+h3 {
+    font-family: "Manrope", sans-serif;
+}
+
+h1 {
+    font-size: clamp(2rem, 4vw, 3.1rem);
+
+    letter-spacing: -0.04em;
+}
+
+.subtitle {
+    margin-top: 8px;
+
+    color: var(--text-muted);
+
+    font-size: 0.98rem;
+}
+
+
+/* ================= CONNECTION ================= */
+
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+
+    padding: 10px 15px;
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+
+    border-radius: 999px;
+
+    box-shadow: 0 5px 18px rgba(31, 60, 39, 0.05);
+
+    font-size: 0.85rem;
+    font-weight: 600;
+
+    white-space: nowrap;
+}
+
+.status-dot {
+    width: 9px;
+    height: 9px;
+
+    border-radius: 50%;
+
+    background: var(--orange);
+
+    animation: pulse 1.8s infinite;
+}
+
+
+/* ================= MAIN ================= */
+
+.dashboard {
+    width: min(1250px, 88%);
+
+    margin: 0 auto;
+
+    padding: 42px 0 60px;
+}
+
+
+/* ================= SENSOR CARDS ================= */
+
+.sensor-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 22px;
+
+    margin-bottom: 48px;
+}
+
+.sensor-card {
+    position: relative;
+
+    overflow: hidden;
+
+    padding: 30px;
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius-lg);
+
+    box-shadow: var(--shadow);
+
+    transition:
+        transform 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+.sensor-card::after {
+    content: "";
+
+    position: absolute;
+
+    width: 130px;
+    height: 130px;
+
+    right: -45px;
+    bottom: -55px;
+
+    border-radius: 50%;
+
+    background: var(--green-light);
+
+    opacity: 0.7;
+}
+
+.sensor-card:hover {
+    transform: translateY(-5px);
+
+    box-shadow:
+        0 18px 40px rgba(31, 60, 39, 0.11);
+}
+
+.card-top {
+    display: flex;
+    align-items: center;
+
+    gap: 13px;
+}
+
+.sensor-icon {
+    width: 45px;
+    height: 45px;
+
+    display: grid;
+    place-items: center;
+
+    border-radius: 13px;
+
+    background: var(--green-light);
+
+    font-size: 1.35rem;
+}
+
+.humidity-card .sensor-icon {
+    background: var(--blue-light);
+}
+
+.sensor-label {
+    color: var(--text-muted);
+
+    font-size: 0.74rem;
+
+    font-weight: 800;
+
+    letter-spacing: 0.1em;
+}
+
+.sensor-value {
+    position: relative;
+    z-index: 2;
+
+    margin-top: 23px;
+
+    font-family: "Manrope", sans-serif;
+
+    font-size: clamp(3rem, 7vw, 4.5rem);
+
+    font-weight: 800;
+
+    letter-spacing: -0.06em;
+}
+
+.unit {
+    margin-left: 5px;
+
+    color: var(--text-muted);
+
+    font-size: 1.25rem;
+
+    font-weight: 600;
+
+    letter-spacing: 0;
+}
+
+.sensor-description {
+    position: relative;
+    z-index: 2;
+
+    margin-top: 4px;
+
+    color: var(--text-muted);
+
+    font-size: 0.88rem;
+}
+
+
+/* ================= SECTIONS ================= */
+
+.status-section,
+.charts-section {
+    margin-top: 20px;
+
+    margin-bottom: 48px;
+}
+
+.section-heading {
+    margin-bottom: 20px;
+}
+
+.section-heading h2 {
+    font-size: 1.55rem;
+
+    letter-spacing: -0.03em;
+}
+
+
+/* ================= STATUS CARDS ================= */
+
+.status-grid {
+    display: grid;
+
+    grid-template-columns:
+        1.3fr 1fr 1fr;
+
+    gap: 18px;
+}
+
+.status-card {
+    padding: 23px;
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius-md);
+
+    box-shadow: var(--shadow);
+
+    transition: transform 0.25s ease;
+}
+
+.status-card:hover {
+    transform: translateY(-3px);
+}
+
+.status-card-header {
+    color: var(--text-muted);
+
+    font-size: 0.82rem;
+
+    font-weight: 600;
+}
+
+.overall-status {
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    margin-top: 18px;
+
+    font-family: "Manrope", sans-serif;
+
+    font-size: 1.35rem;
+
+    font-weight: 800;
+}
+
+.large-status-dot {
+    width: 13px;
+    height: 13px;
+
+    border-radius: 50%;
+
+    background: var(--orange);
+}
+
+.status-card p {
+    margin-top: 9px;
+
+    color: var(--text-muted);
+
+    font-size: 0.82rem;
+}
+
+
+/* ================= DEVICE STATUS ================= */
+
+.device-status {
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    margin-top: 18px;
+}
+
+.device-status strong {
+    font-family: "Manrope", sans-serif;
+
+    font-size: 1.2rem;
+}
+
+.device-dot {
+    width: 11px;
+    height: 11px;
+
+    border-radius: 50%;
+
+    background: #9ca79e;
+}
+
+
+/* ================= CHARTS ================= */
+
+.charts-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 20px;
+}
+
+.chart-card {
+    padding: 24px;
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius-md);
+
+    box-shadow: var(--shadow);
+}
+
+.chart-header h3 {
+    font-size: 1rem;
+}
+
+.chart-header p {
+    margin-top: 3px;
+
+    color: var(--text-muted);
+
+    font-size: 0.78rem;
+}
+
+.chart-container {
+    position: relative;
+
+    height: 300px;
+
+    margin-top: 20px;
+}
+
+
+/* ================= LAST UPDATE ================= */
+
+.last-update {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 7px;
+
+    padding: 15px;
+
+    color: var(--text-muted);
+
+    font-size: 0.8rem;
+
+    border-top: 1px solid var(--border);
+}
+
+.last-update strong {
+    color: var(--text);
+}
+
+
+/* ================= FOOTER ================= */
+
+.footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 25px 6%;
+
+    color: var(--text-muted);
+
+    border-top: 1px solid var(--border);
+
+    font-size: 0.75rem;
+}
+
+
+/* ================= ANIMATIONS ================= */
+
+@keyframes pulse {
+
+    0% {
+        box-shadow: 0 0 0 0 rgba(230, 138, 53, 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 7px rgba(230, 138, 53, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(230, 138, 53, 0);
+    }
+
+}
+
+
+/* ================= RESPONSIVE ================= */
+
+@media (max-width: 900px) {
+
+    .status-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .status-card:first-child {
+        grid-column: 1 / -1;
+    }
+
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+
+@media (max-width: 650px) {
+
+    .header {
+        padding: 30px 6% 25px;
+    }
+
+    .header-content {
+        align-items: flex-start;
+
+        flex-direction: column;
+    }
+
+    .connection-status {
+        align-self: flex-start;
+    }
+
+    .dashboard {
+        width: 92%;
+
+        padding-top: 28px;
+    }
+
+    .sensor-grid {
+        grid-template-columns: 1fr;
+
+        gap: 15px;
+
+        margin-bottom: 38px;
+    }
+
+    .sensor-card {
+        padding: 24px;
+    }
+
+    .sensor-value {
+        font-size: 3.5rem;
+    }
+
+    .status-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .status-card:first-child {
+        grid-column: auto;
+    }
+
+    .chart-container {
+        height: 240px;
+    }
+
+    .footer {
+        flex-direction: column;
+
+        gap: 5px;
+
+        text-align: center;
+    }
+
+}
