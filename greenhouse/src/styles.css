@@ -1,0 +1,1245 @@
+/* ===================================================
+   glasshouse — one stylesheet for every route
+
+   The page is built like glazing: panes sitting in a
+   grid of hairline bars. The one dark object is the
+   board's own screen, because that is the one object
+   that really is dark.
+
+   Mobile first throughout: the base rules are the
+   phone layout and every breakpoint only adds.
+   =================================================== */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --glass:    #edf2ee;   /* ground: daylight through frosted glass */
+  --pane:     #ffffff;   /* the panes themselves                   */
+  --mullion:  #c3d1c7;   /* glazing bars: every hairline on page   */
+  --soil:     #1c2b24;   /* primary text                           */
+  --stem:     #5e7368;   /* secondary text                         */
+  --frond:    #14804f;   /* living green: in range, healthy        */
+  --sodium:   #b0731a;   /* lamp amber: caution, out of range      */
+  --rust:     #a33b2e;   /* fault                                  */
+
+  --pane-hover:     #fbfefc;
+  --offline-bg:     #fbfaf8;
+  --ridge-bg:       rgba(237, 242, 238, 0.86);
+  --on-accent:      #ffffff;
+  --on-accent-soft: rgba(255, 255, 255, 0.18);
+
+  /* washes derived from the accents, kept as tokens so the dark
+     theme can lift them: 7% ink on white is invisible on black */
+  --tint-frond:       rgba(20, 128, 79, 0.18);
+  --tint-frond-soft:  rgba(20, 128, 79, 0.07);
+  --tint-sodium:      rgba(176, 115, 26, 0.14);
+  --tint-sodium-soft: rgba(176, 115, 26, 0.07);
+  --tint-sodium-glow: rgba(176, 115, 26, 0.35);
+  --tint-rust:        rgba(163, 59, 46, 0.10);
+  --tint-stem-soft:   rgba(94, 115, 104, 0.07);
+  --dot-glow:         rgba(20, 128, 79, 0.15);
+
+  /* the board's screen is a real object: dark in either theme */
+  --lcd-bg:       #10201a;
+  --lcd-fg:       #7ae0ae;
+  --lcd-fg-error: #e8927f;
+
+  --ease:   cubic-bezier(0.22, 0.61, 0.36, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --frame:    18px;   /* outer frames                     */
+  --frame-sm: 10px;   /* things sitting inside a frame    */
+
+  --lift: 0 1px 2px rgba(28, 43, 36, 0.04),
+          0 10px 30px -14px rgba(28, 43, 36, 0.20);
+  --lift-hover: 0 1px 2px rgba(28, 43, 36, 0.05),
+                0 18px 44px -18px rgba(28, 43, 36, 0.28);
+}
+
+/* ---------- the glasshouse after dark ----------
+   Not the light theme inverted: the accents are lifted so they
+   still carry on a dark ground, and shadow does the separating
+   that hairlines do in daylight.                              */
+
+:root[data-theme="dark"] {
+  --glass:    #0e1714;
+  --pane:     #16211d;
+  --mullion:  #2b3a34;
+  --soil:     #e7efeb;
+  --stem:     #8ca497;
+  --frond:    #43ce97;
+  --sodium:   #dfa851;
+  --rust:     #e08472;
+
+  --pane-hover:     #1a2621;
+  --offline-bg:     #131c19;
+  --ridge-bg:       rgba(14, 23, 20, 0.88);
+  --on-accent:      #08120f;
+  --on-accent-soft: rgba(8, 18, 15, 0.22);
+
+  --tint-frond:       rgba(67, 206, 151, 0.20);
+  --tint-frond-soft:  rgba(67, 206, 151, 0.10);
+  --tint-sodium:      rgba(223, 168, 81, 0.18);
+  --tint-sodium-soft: rgba(223, 168, 81, 0.10);
+  --tint-sodium-glow: rgba(223, 168, 81, 0.40);
+  --tint-rust:        rgba(224, 132, 114, 0.16);
+  --tint-stem-soft:   rgba(140, 164, 151, 0.10);
+  --dot-glow:         rgba(67, 206, 151, 0.20);
+
+  --lcd-bg:       #08120f;
+  --lcd-fg:       #6fdba6;
+  --lcd-fg-error: #ef9884;
+
+  --lift: 0 1px 2px rgba(0, 0, 0, 0.34),
+          0 10px 30px -14px rgba(0, 0, 0, 0.72);
+  --lift-hover: 0 1px 2px rgba(0, 0, 0, 0.40),
+                0 18px 44px -18px rgba(0, 0, 0, 0.86);
+}
+
+body {
+  background: var(--glass);
+  font-family: 'Inter Tight', -apple-system, system-ui, sans-serif;
+  color: var(--soil);
+  min-height: 100vh;
+  padding: 0 14px 44px;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.35s var(--ease), color 0.35s var(--ease);
+}
+
+/* React mounts here, so #root is the real layout root. Without an
+   explicit width it shrink-wraps its content and the app never
+   reaches the edges of the screen. */
+#root { width: 100%; }
+
+.app { width: 100%; }
+
+/* ---------- the ridge: identity, state, the way out ---------- */
+
+.ridge {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding: 22px 0 0;
+  margin-bottom: 22px;
+  border-bottom: 2px solid var(--soil);
+  background: var(--ridge-bg);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+}
+
+.ridge-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+}
+
+.ridge h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-variation-settings: 'opsz' 96, 'WONK' 1;
+  font-weight: 600;
+  font-size: clamp(26px, 5vw, 40px);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.ridge h1 span {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--stem);
+  margin-top: 8px;
+}
+
+.status-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 1px solid var(--mullion);
+  border-radius: 100px;
+  background: var(--pane);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--stem);
+  white-space: nowrap;
+  transition: border-color 0.3s var(--ease), color 0.3s var(--ease);
+}
+
+.status-pill:hover { border-color: var(--stem); }
+
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--stem);
+  flex-shrink: 0;
+}
+
+.status-dot.live,
+.status-dot.realtime { background: var(--frond); animation: pulse 2.4s ease-in-out infinite; }
+.status-dot.polling  { background: var(--sodium); }
+.status-dot.error,
+.status-dot.offline  { background: var(--rust); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.82); }
+}
+
+.uptime-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--stem);
+  padding: 7px 12px;
+  border: 1px solid var(--mullion);
+  border-radius: 100px;
+  background: var(--pane);
+  white-space: nowrap;
+  transition: border-color 0.3s var(--ease);
+}
+
+.uptime-badge:hover { border-color: var(--stem); }
+
+.theme-toggle {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--mullion);
+  border-radius: 50%;
+  background: var(--pane);
+  color: var(--stem);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.25s var(--ease), color 0.25s var(--ease),
+              background 0.25s var(--ease), transform 0.3s var(--spring);
+}
+
+.theme-toggle:hover { border-color: var(--stem); color: var(--soil); }
+.theme-toggle:active { transform: scale(0.9) rotate(-18deg); }
+
+/* second tier: derived numbers on the left, the way out on the right */
+.ridge-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 0 12px;
+  border-top: 1px solid var(--mullion);
+}
+
+.readouts {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--stem);
+}
+
+.readout b {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--soil);
+  font-variant-numeric: tabular-nums;
+  margin-left: 5px;
+}
+
+.ridge-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 15px;
+  border: 1px solid var(--soil);
+  border-radius: 100px;
+  background: transparent;
+  color: var(--soil);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.22s var(--ease), color 0.22s var(--ease),
+              border-color 0.22s var(--ease), transform 0.16s var(--ease);
+}
+
+.nav-btn:hover { background: var(--soil); color: var(--pane); }
+.nav-btn:active { transform: scale(0.96); }
+.nav-btn .arrow { transition: transform 0.25s var(--ease); }
+.nav-btn:hover .arrow { transform: translateX(-3px); }
+
+.nav-btn .tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 100px;
+  background: var(--glass);
+  color: var(--stem);
+  transition: background 0.22s var(--ease), color 0.22s var(--ease);
+}
+
+.nav-btn:hover .tag { background: var(--on-accent-soft); color: var(--pane); }
+
+/* an unacknowledged fault turns the button itself, not just a dot */
+.nav-btn.alert { border-color: var(--rust); color: var(--rust); }
+.nav-btn.alert .tag { background: var(--tint-rust); color: var(--rust); }
+.nav-btn.alert:hover { background: var(--rust); color: var(--pane); }
+.nav-btn.alert:hover .tag { background: var(--on-accent-soft); color: var(--pane); }
+
+/* ---------- connection bar ---------- */
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: var(--pane);
+  border: 1px solid var(--mullion);
+  border-left: 3px solid var(--frond);
+  border-radius: var(--frame);
+  margin-bottom: 14px;
+  box-shadow: var(--lift);
+  transition: border-color 0.4s var(--ease), box-shadow 0.45s var(--ease);
+}
+
+.connection-status.offline { border-left-color: var(--rust); }
+
+.connection-status .icon-container {
+  width: 34px; height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--glass);
+  color: var(--frond);
+  flex-shrink: 0;
+  transition: color 0.4s var(--ease);
+}
+
+.connection-status.offline .icon-container { color: var(--rust); }
+
+.connection-status.offline .icon-container { animation: shake 0.5s var(--ease); }
+
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  25%     { transform: translateX(-3px); }
+  75%     { transform: translateX(3px); }
+}
+
+.connection-status .status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.connection-status .title { font-size: 13px; font-weight: 600; }
+.connection-status .subtitle { font-size: 12px; color: var(--stem); }
+
+.connection-status .timer {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--stem);
+  flex-shrink: 0;
+}
+
+/* ---------- fault banner ---------- */
+
+.alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  background: var(--pane);
+  border: 1px solid var(--mullion);
+  border-left: 3px solid var(--rust);
+  border-radius: var(--frame);
+  box-shadow: var(--lift);
+  animation: settle 0.45s var(--ease);
+}
+
+@keyframes settle {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.alert-banner .alert-icon { color: var(--rust); flex-shrink: 0; }
+
+.alert-banner .alert-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-banner .alert-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rust);
+}
+
+.alert-banner .alert-detail {
+  font-size: 12px;
+  color: var(--stem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alert-banner .alert-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--stem);
+  flex-shrink: 0;
+}
+
+.alert-banner .alert-close {
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  color: var(--stem);
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.alert-banner .alert-close:hover { color: var(--soil); }
+
+/* ---------- glazing: panes held in hairline bars ---------- */
+
+.panes {
+  display: grid;
+  gap: 1px;
+  background: var(--mullion);
+  border: 1px solid var(--mullion);
+  border-radius: var(--frame);
+  overflow: hidden;
+  margin-bottom: 14px;
+  box-shadow: var(--lift);
+  transition: box-shadow 0.45s var(--ease);
+}
+
+.panes:hover { box-shadow: var(--lift-hover); }
+
+/* base is the phone layout: one pane per row */
+.panes.climate { grid-template-columns: 1fr; }
+.panes.rig     { grid-template-columns: 1fr; }
+
+.pane {
+  background: var(--pane);
+  padding: 20px 18px;
+  position: relative;
+  /* background only — a transform here would tear the 1px seams */
+  transition: background 0.35s var(--ease);
+}
+
+.pane:hover { background: var(--pane-hover); }
+
+/* light filling the house, pane by pane */
+.panes .pane { animation: raise 0.55s var(--ease) backwards; }
+.panes .pane:nth-child(1) { animation-delay: 0.04s; }
+.panes .pane:nth-child(2) { animation-delay: 0.10s; }
+.panes .pane:nth-child(3) { animation-delay: 0.16s; }
+
+/* opacity only: the frame around these is already sliding up,
+   and two stacked translates read as a wobble */
+@keyframes raise {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.grid-full { grid-column: 1 / -1; }
+
+.card-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--stem);
+  margin-bottom: 14px;
+}
+
+.delta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--stem);
+}
+
+/* icons inherit the colour of whatever they sit in, so a badge that
+   turns amber turns its arrow amber too */
+svg { flex-shrink: 0; }
+
+.delta-badge.up   { color: var(--sodium); }
+.delta-badge.down { color: var(--frond); }
+
+.value-block { display: flex; align-items: flex-end; }
+
+.value-number {
+  font-family: 'Fraunces', Georgia, serif;
+  font-variation-settings: 'opsz' 144;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 0.9;
+}
+
+/* React remounts this span when the reading changes, which replays
+   the animation without any class bookkeeping */
+.value-number .num {
+  font-size: clamp(42px, 8vw, 62px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  animation: newValue 0.55s var(--spring);
+}
+
+@keyframes newValue {
+  0%   { opacity: 0.25; transform: translateY(4px); }
+  100% { opacity: 1;    transform: translateY(0); }
+}
+
+.value-number .unit {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--stem);
+}
+
+.card-note { font-size: 12px; color: var(--stem); margin-top: 10px; }
+.card-note.flag    { color: var(--sodium); font-weight: 500; }
+.card-note.warning { color: var(--rust); font-weight: 500; }
+
+/* ---------- signature: the comfort band ----------
+   A number alone does not say whether the glasshouse is right.
+   The band shows the growing range and puts a marker where the
+   reading actually falls, so the answer needs no arithmetic.   */
+
+.band { margin-top: 18px; }
+
+.band-track {
+  position: relative;
+  height: 8px;
+  background: var(--glass);
+  border-radius: 100px;
+}
+
+.band-zone {
+  position: absolute;
+  top: 0; bottom: 0;
+  background: var(--tint-frond);
+  border-left: 1px solid var(--frond);
+  border-right: 1px solid var(--frond);
+}
+
+.band-marker {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 20px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--soil);
+  transform: translateY(-50%);
+  transition: left 0.7s var(--ease), background 0.4s;
+}
+
+.band.out .band-marker {
+  background: var(--sodium);
+  animation: markerPulse 2.2s ease-in-out infinite;
+}
+
+.band.out .band-zone { background: var(--tint-sodium); border-color: var(--sodium); }
+
+/* out of range keeps a slow halo so it reads across the room */
+@keyframes markerPulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--tint-sodium-glow); }
+  50%      { box-shadow: 0 0 0 6px transparent; }
+}
+
+.band-scale {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--stem);
+}
+
+/* ---------- trace ---------- */
+
+.trace {
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin-top: 16px;
+  overflow: visible;
+}
+
+.trace .line {
+  fill: none;
+  stroke: var(--frond);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.trace .fill { fill: var(--tint-frond-soft); stroke: none; }
+
+#card-hum .trace .line { stroke: var(--sodium); }
+#card-hum .trace .fill { fill: var(--tint-sodium-soft); }
+
+#card-co2 .trace .line { stroke: var(--stem); }
+#card-co2 .trace .fill { fill: var(--tint-stem-soft); }
+
+.card.offline-mode { background: var(--offline-bg); }
+.card.offline-mode .value-number .num { color: var(--stem); }
+
+/* ---------- device controls ---------- */
+
+/* panes in a row stretch to the tallest, so the control is pinned
+   to the bottom rather than floating mid-pane */
+.device-card { display: flex; flex-direction: column; }
+.device-card .card-label { margin-bottom: 18px; }
+.device-card .device-status { margin-top: auto; }
+
+.device-name { display: inline-flex; align-items: center; gap: 8px; }
+
+.device-icon { display: inline-flex; }
+.device-icon.spin { animation: spin 1.6s linear infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.device-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--stem);
+}
+
+.indicator .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--mullion);
+  transition: background 0.3s;
+}
+
+.indicator .dot.on { background: var(--frond); box-shadow: 0 0 0 3px var(--dot-glow); }
+
+.toggle-btn {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: 100px;
+  border: 1px solid var(--soil);
+  background: var(--pane);
+  color: var(--soil);
+  cursor: pointer;
+  transition: background 0.22s var(--ease), color 0.22s var(--ease),
+              border-color 0.22s var(--ease), transform 0.16s var(--ease);
+}
+
+.toggle-btn:hover { background: var(--soil); color: var(--pane); }
+.toggle-btn:active { transform: scale(0.96); }
+.toggle-btn.on { background: var(--frond); border-color: var(--frond); color: var(--on-accent); }
+.toggle-btn.on:hover { background: var(--soil); border-color: var(--soil); color: var(--pane); }
+
+/* ---------- board screen: the one dark object ---------- */
+
+.screen-pane { display: flex; flex-direction: column; }
+
+.screen-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.screen-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--stem);
+}
+
+.screen-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--stem);
+}
+
+.lcd {
+  padding: 15px 16px;
+  border-radius: var(--frame-sm);
+  background: var(--lcd-bg);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  letter-spacing: 0.13em;
+  color: var(--lcd-fg);
+  overflow-x: auto;
+  transition: color 0.3s;
+}
+
+/* pre goes on the line, not the box: on the box it would also
+   preserve the newlines between the two lines and print blanks */
+.lcd-line { white-space: pre; }
+
+.lcd.error { color: var(--lcd-fg-error); }
+.lcd.error .lcd-line:first-child { animation: blink 1.4s step-end infinite; }
+
+@keyframes blink {
+  0%, 60%   { opacity: 1; }
+  61%, 100% { opacity: 0.3; }
+}
+
+/* ---------- summary strip (history + errors) ---------- */
+
+.summary {
+  display: grid;
+  grid-template-columns: 1fr;   /* base: phone */
+  gap: 1px;
+  background: var(--mullion);
+  border: 1px solid var(--mullion);
+  border-radius: var(--frame);
+  overflow: hidden;
+  margin-bottom: 14px;
+  box-shadow: var(--lift);
+}
+
+.stat {
+  background: var(--pane);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: raise 0.5s var(--ease) backwards;
+}
+
+.stat:nth-child(1) { animation-delay: 0.04s; }
+.stat:nth-child(2) { animation-delay: 0.09s; }
+.stat:nth-child(3) { animation-delay: 0.14s; }
+.stat:nth-child(4) { animation-delay: 0.19s; }
+
+.stat .label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--stem);
+}
+
+.stat .value {
+  font-family: 'Fraunces', Georgia, serif;
+  font-variation-settings: 'opsz' 96;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.stat .value.sm { font-size: 17px; line-height: 1.25; }
+
+.stat .sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--stem);
+  min-height: 12px;
+}
+
+.stat.temp .value  { color: var(--frond); }
+.stat.hum .value   { color: var(--sodium); }
+.stat.live .value  { color: var(--rust); }
+.stat.clear .value { color: var(--frond); }
+
+/* ---------- log container (history + errors) ---------- */
+
+.log {
+  background: var(--pane);
+  border: 1px solid var(--mullion);
+  border-radius: var(--frame);
+  overflow: hidden;
+  box-shadow: var(--lift);
+  margin-bottom: 16px;
+}
+
+.log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px;
+  border-bottom: 1px solid var(--mullion);
+}
+
+.log-head .title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.log-head .count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--stem);
+  margin-left: 8px;
+}
+
+.controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.chip {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 7px 13px;
+  border-radius: 100px;
+  border: 1px solid var(--mullion);
+  background: var(--pane);
+  color: var(--stem);
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease),
+              background 0.2s var(--ease), transform 0.16s var(--ease);
+}
+
+.chip:hover { border-color: var(--stem); color: var(--soil); }
+.chip:active { transform: scale(0.96); }
+.chip.on { background: var(--soil); border-color: var(--soil); color: var(--pane); }
+
+/* ---------- reading table ---------- */
+
+.table-wrap { max-height: 62vh; overflow-y: auto; }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+
+.data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--pane);
+  text-align: left;
+  font-weight: 500;
+  color: var(--stem);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--mullion);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--glass);
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr { transition: background 0.15s var(--ease); }
+.data-table tbody tr:hover td { background: var(--glass); }
+
+/* readings line up on the decimal so a column can be scanned */
+.data-table .num { text-align: right; }
+.data-table td.time { color: var(--stem); }
+.data-table td.temp { color: var(--frond); }
+.data-table td.hum  { color: var(--sodium); }
+
+/* a day's first row carries the date; the rest carry only a time */
+.data-table tr.daybreak td { border-top: 1px solid var(--mullion); }
+
+/* ---------- incident list ---------- */
+
+.list { display: flex; flex-direction: column; }
+
+.incident {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px;
+  border-bottom: 1px solid var(--glass);
+  animation: reveal 0.4s var(--ease) backwards;
+  /* on a phone the timestamp drops under the detail rather than
+     squeezing the message into a two-word column */
+  flex-wrap: wrap;
+}
+
+.incident:last-child { border-bottom: none; }
+.incident:nth-child(1) { animation-delay: 0.02s; }
+.incident:nth-child(2) { animation-delay: 0.06s; }
+.incident:nth-child(3) { animation-delay: 0.10s; }
+.incident:nth-child(4) { animation-delay: 0.14s; }
+.incident:nth-child(5) { animation-delay: 0.18s; }
+
+.incident .bar {
+  width: 2px;
+  align-self: stretch;
+  min-height: 34px;
+  background: var(--mullion);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.incident.recent .bar { background: var(--rust); }
+
+.incident .body { flex: 1; min-width: 0; }
+
+.incident .head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.incident .name { font-size: 14px; font-weight: 600; letter-spacing: -0.005em; }
+
+/* how many times this same fault repeated in a row */
+.incident .tally {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 100px;
+  background: var(--glass);
+  color: var(--stem);
+}
+
+.incident .live-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: var(--tint-rust);
+  color: var(--rust);
+}
+
+.incident .type {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--stem);
+  opacity: 0.75;
+  margin-top: 4px;
+}
+
+.incident .message {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--stem);
+  margin-top: 6px;
+  word-break: break-word;
+}
+
+.incident .when {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--stem);
+  white-space: nowrap;
+  flex-shrink: 0;
+  /* base (phone): sits under the detail, reading left like the rest */
+  width: 100%;
+  padding-left: 16px;
+  text-align: left;
+}
+
+.incident .when .abs { display: inline; font-size: 10px; opacity: 0.7; margin-left: 8px; }
+
+/* ---------- loading / empty ---------- */
+
+.state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 16px;
+  font-size: 13px;
+  color: var(--stem);
+}
+
+.spinner {
+  width: 13px; height: 13px;
+  border: 2px solid var(--mullion);
+  border-top-color: var(--frond);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ---------- toast ---------- */
+
+.msg {
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  background: var(--pane);
+  border: 1px solid var(--mullion);
+  border-left: 3px solid var(--rust);
+  border-radius: var(--frame);
+  box-shadow: var(--lift);
+  font-size: 13px;
+  animation: settle 0.4s var(--ease);
+}
+
+/* ---------- footer ---------- */
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-top: 18px;
+  border-top: 1px solid var(--mullion);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--stem);
+}
+
+.live-icon {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--frond);
+  display: inline-block;
+  margin-right: 7px;
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+.live-icon.disconnected { background: var(--rust); animation: none; }
+
+.btn {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 100px;
+  border: 1px solid var(--soil);
+  background: transparent;
+  color: var(--soil);
+  cursor: pointer;
+  transition: background 0.22s var(--ease), color 0.22s var(--ease),
+              transform 0.16s var(--ease);
+}
+
+.btn:hover { background: var(--soil); color: var(--pane); }
+.btn:active { transform: scale(0.96); }
+.btn.refreshing { opacity: 0.55; pointer-events: none; }
+
+.refresh-spinner {
+  display: none;
+  width: 12px; height: 12px;
+  border: 2px solid var(--mullion);
+  border-top-color: var(--soil);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.btn .btn-text { display: inline-flex; align-items: center; gap: 6px; }
+.btn.refreshing .btn-text { display: none; }
+.btn.refreshing .refresh-spinner { display: inline-block; }
+
+/* ---------- preloader ---------- */
+
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: var(--glass);
+  transition: opacity 0.6s var(--ease), visibility 0.6s;
+}
+
+.preloader.done { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.preload-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 0 24px;
+  animation: reveal 0.7s var(--ease) backwards;
+}
+
+.preload-mark {
+  font-family: 'Fraunces', Georgia, serif;
+  font-variation-settings: 'opsz' 96, 'WONK' 1;
+  font-weight: 600;
+  font-size: clamp(30px, 7vw, 46px);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--soil);
+}
+
+.preload-rule {
+  width: min(240px, 60vw);
+  height: 2px;
+  background: var(--mullion);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.preload-rule span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--frond);
+  transform-origin: left;
+  animation: sweep 1.5s var(--ease) infinite;
+}
+
+@keyframes sweep {
+  0%   { transform: scaleX(0); opacity: 1; }
+  70%  { transform: scaleX(1); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0.15; }
+}
+
+.preload-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--stem);
+}
+
+/* ---------- motion ----------
+   One orchestrated arrival, then the page stays still unless
+   something actually changed. Anything that moves on a timer is
+   reporting a live state, not decorating.                     */
+
+.app > * { animation: reveal 0.6s var(--ease) backwards; }
+.app > *:nth-child(1) { animation-delay: 0.00s; }
+.app > *:nth-child(2) { animation-delay: 0.06s; }
+.app > *:nth-child(3) { animation-delay: 0.10s; }
+.app > *:nth-child(4) { animation-delay: 0.14s; }
+.app > *:nth-child(5) { animation-delay: 0.18s; }
+.app > *:nth-child(6) { animation-delay: 0.22s; }
+.app > *:nth-child(7) { animation-delay: 0.26s; }
+
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- scale up ----------
+   Everything above is the phone layout. Each breakpoint only adds,
+   so a narrow screen never has to undo a rule written for a wide
+   one, and the page fills whatever width it is given.            */
+
+@media (min-width: 600px) {
+  body { padding: 0 20px 52px; }
+  .pane { padding: 26px 24px; }
+  .panes.climate { grid-template-columns: repeat(2, 1fr); }
+  .panes.rig     { grid-template-columns: repeat(2, 1fr); }
+  .screen-pane   { grid-column: 1 / -1; }
+  .ridge-top     { align-items: flex-end; }
+  .summary       { grid-template-columns: repeat(2, 1fr); }
+  .log-head      { padding: 16px 20px; }
+  .data-table th, .data-table td { padding-left: 20px; padding-right: 20px; }
+
+  /* room again for the timestamp to sit in its own right-hand column */
+  .incident { padding: 16px 20px; flex-wrap: nowrap; }
+  .incident .when { width: auto; padding-left: 0; text-align: right; }
+  .incident .when .abs { display: block; margin-left: 0; margin-top: 3px; }
+
+  /* CO2 spans the pair above it here, so it is alone on its row and
+     its content centres rather than hugging the left edge */
+  #card-co2 { text-align: center; }
+  #card-co2 .card-label { justify-content: center; gap: 14px; }
+  #card-co2 .value-block { justify-content: center; }
+}
+
+@media (min-width: 1000px) {
+  body { padding: 0 26px 56px; }
+  .panes.rig   { grid-template-columns: repeat(3, 1fr); }
+  .screen-pane { grid-column: auto; }
+  .summary     { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* wide desktop: CO2 comes up beside the other two instead of
+   stretching one number across the entire screen */
+@media (min-width: 1500px) {
+  body { padding: 0 34px 68px; }
+  .pane { padding: 30px 28px; }
+  .panes.climate { grid-template-columns: repeat(3, 1fr); }
+  .grid-full { grid-column: auto; }
+
+  /* no longer alone on a row: it is a column beside the other two,
+     so it lines up with them again */
+  #card-co2 { text-align: left; }
+  #card-co2 .card-label { justify-content: space-between; gap: 10px; }
+  #card-co2 .value-block { justify-content: flex-start; }
+}
+
+/* ---------- quality floor ---------- */
+
+:focus-visible {
+  outline: 2px solid var(--frond);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}

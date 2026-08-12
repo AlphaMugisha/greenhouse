@@ -31,13 +31,35 @@ const char* SUPABASE_KEY =
 
 DHT dht(DHTPIN, DHTTYPE);
 
+// Counts how many reads have failed in a row.
+// Resets as soon as the DHT11 gives a good reading again.
+int consecutiveErrors = 0;
+
+// =====================================================
+// Error reporting
+// =====================================================
+
+// A fault that sticks around would post a new row every
+// loop, so the same error type is only sent once a
+// minute. A different error type always goes through.
+#define ERROR_THROTTLE_MS 60000
+
+String lastErrorType = "";
+unsigned long lastErrorSentAt = 0;
+
+// Set when Wi-Fi fails, sent once the connection is back
+// (an error cannot be posted while the link is down).
+bool wifiErrorPending = false;
+
 // =====================================================
 // Function declarations
 // =====================================================
 
 void connectToWiFi();
 void sendToSupabase(float temperature, float humidity);
-void sendSensorError();
+void sendSensorError(String errorType, String errorMessage);
+void reportError(String errorType, String errorMessage);
+String jsonEscape(String value);
 
 // =====================================================
 // Setup
@@ -97,6 +119,8 @@ void loop() {
 
   if (isnan(humidity) || isnan(temperature)) {
 
+    consecutiveErrors++;
+
     Serial.println();
     Serial.println("================================");
     Serial.println("ERROR: FAILED TO READ DHT11!");
@@ -105,13 +129,25 @@ void loop() {
     Serial.println("Temperature reading: INVALID");
     Serial.println("Humidity reading: INVALID");
 
+    Serial.print("Failed reads in a row: ");
+    Serial.println(consecutiveErrors);
+
     // Send error to Supabase
-    sendSensorError();
+    reportError(
+      "DHT11_READ_ERROR",
+      "Failed to read temperature or humidity from DHT11"
+    );
 
     delay(5000);
 
     return;
   }
+
+  // ---------------------------------------------------
+  // Good reading, so clear any error state
+  // ---------------------------------------------------
+
+  consecutiveErrors = 0;
 
   // ---------------------------------------------------
   // Display sensor readings
@@ -173,10 +209,75 @@ void connectToWiFi() {
     Serial.print("ESP32 IP: ");
     Serial.println(WiFi.localIP());
 
+    // ---------------------------------------------------
+    // Report a dropout now that there is a link again
+    // ---------------------------------------------------
+
+    if (wifiErrorPending) {
+
+      wifiErrorPending = false;
+
+      reportError(
+        "WIFI_CONNECTION_ERROR",
+        "Device lost Wi-Fi and reconnected after " +
+          String(attempts) + " attempts"
+      );
+    }
+
   } else {
 
     Serial.println("ERROR: Could not connect to Wi-Fi!");
+
+    // Cannot post it yet, so remember to send it
+    // once the connection comes back.
+    wifiErrorPending = true;
   }
+}
+
+// =====================================================
+// Report an Error (with throttling)
+// =====================================================
+
+// Everything in the sketch reports errors through here
+// so a stuck fault cannot fill the table with one row
+// every five seconds.
+
+void reportError(String errorType, String errorMessage) {
+
+  unsigned long now = millis();
+
+  bool sameAsLast = (errorType == lastErrorType);
+
+  bool tooSoon =
+    (now - lastErrorSentAt) < ERROR_THROTTLE_MS;
+
+  if (sameAsLast && tooSoon && lastErrorSentAt != 0) {
+
+    Serial.print("Error not sent (same type within ");
+    Serial.print(ERROR_THROTTLE_MS / 1000);
+    Serial.println("s): " + errorType);
+
+    return;
+  }
+
+  lastErrorType = errorType;
+  lastErrorSentAt = now;
+
+  sendSensorError(errorType, errorMessage);
+}
+
+// =====================================================
+// Escape a String for JSON
+// =====================================================
+
+String jsonEscape(String value) {
+
+  value.replace("\\", "\\\\");
+  value.replace("\"", "\\\"");
+  value.replace("\n", " ");
+  value.replace("\r", " ");
+
+  return value;
 }
 
 // =====================================================
@@ -289,6 +390,11 @@ void sendToSupabase(float temperature, float humidity) {
   Serial.print("HTTP Response: ");
   Serial.println(httpResponseCode);
 
+  // Held until the connection below is closed, because
+  // reporting it opens a second HTTPS client and two TLS
+  // sessions at once will exhaust memory on the ESP32.
+  String uploadError = "";
+
   if (httpResponseCode > 0) {
 
     String response =
@@ -308,6 +414,10 @@ void sendToSupabase(float temperature, float humidity) {
       Serial.println(
         "WARNING: Request completed, but check Supabase."
       );
+
+      uploadError =
+        "Supabase rejected the reading with HTTP " +
+        String(httpResponseCode) + ": " + response;
     }
 
   } else {
@@ -319,6 +429,10 @@ void sendToSupabase(float temperature, float humidity) {
     Serial.println(
       https.errorToString(httpResponseCode)
     );
+
+    uploadError =
+      "Could not reach Supabase: " +
+      https.errorToString(httpResponseCode);
   }
 
   // ---------------------------------------------------
@@ -326,13 +440,22 @@ void sendToSupabase(float temperature, float humidity) {
   // ---------------------------------------------------
 
   https.end();
+
+  // ---------------------------------------------------
+  // Now safe to report an upload failure
+  // ---------------------------------------------------
+
+  if (uploadError.length() > 0) {
+
+    reportError("SUPABASE_UPLOAD_ERROR", uploadError);
+  }
 }
 
 // =====================================================
-// Send DHT11 Error to Supabase
+// Send an Error to Supabase
 // =====================================================
 
-void sendSensorError() {
+void sendSensorError(String errorType, String errorMessage) {
 
   // ---------------------------------------------------
   // Check Wi-Fi
@@ -422,8 +545,13 @@ void sendSensorError() {
 
   String errorData = "{";
 
-  errorData += "\"error_type\":\"DHT11_READ_ERROR\",";
-  errorData += "\"error_message\":\"Failed to read temperature or humidity from DHT11\"";
+  errorData += "\"error_type\":\"";
+  errorData += jsonEscape(errorType);
+  errorData += "\",";
+
+  errorData += "\"error_message\":\"";
+  errorData += jsonEscape(errorMessage);
+  errorData += "\"";
 
   errorData += "}";
 
