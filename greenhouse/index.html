@@ -839,6 +839,161 @@
       to { transform: rotate(360deg); }
     }
 
+    .alert-banner {
+      display: none;
+      align-items: center;
+      gap: 14px;
+      margin-top: 20px;
+      padding: 14px 18px;
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, rgba(217,122,110,0.15), rgba(217,122,110,0.03));
+      border: 1px solid rgba(217,122,110,0.3);
+      animation: alertIn 0.5s var(--ease-spring);
+    }
+
+    .alert-banner.show {
+      display: flex;
+    }
+
+    @keyframes alertIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .alert-banner .alert-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+      animation: alertPulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes alertPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.15); opacity: 0.7; }
+    }
+
+    .alert-banner .alert-text {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .alert-banner .alert-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent-rose);
+    }
+
+    .alert-banner .alert-detail {
+      font-size: 12px;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .alert-banner .alert-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .alert-banner .alert-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 2px;
+      transition: color 0.25s;
+      flex-shrink: 0;
+    }
+
+    .alert-banner .alert-close:hover {
+      color: var(--text-primary);
+    }
+
+    .history-header .label .count.alert {
+      color: var(--accent-rose);
+      font-weight: 600;
+    }
+
+    .error-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .error-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .error-item.recent {
+      background: rgba(217,122,110,0.07);
+      border-color: rgba(217,122,110,0.28);
+    }
+
+    .error-item .bar {
+      width: 3px;
+      align-self: stretch;
+      min-height: 30px;
+      border-radius: 3px;
+      background: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .error-item.recent .bar {
+      background: var(--accent-rose);
+    }
+
+    .error-item .body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .error-item .type {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: var(--accent-rose);
+    }
+
+    .error-item .message {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--text-secondary);
+      margin-top: 3px;
+      word-break: break-word;
+    }
+
+    .error-item .when {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+      text-align: right;
+    }
+
+    .error-item .when .abs {
+      display: block;
+      font-size: 10px;
+      opacity: 0.65;
+      margin-top: 2px;
+    }
+
     /* ---- extra stats ---- */
     .extra-stats {
       display: grid;
@@ -1073,6 +1228,17 @@
     <div class="timer" id="connTimer">00:00</div>
   </div>
 
+  <!-- Device Error Alert -->
+  <div class="alert-banner" id="errorBanner">
+    <div class="alert-icon">⚠️</div>
+    <div class="alert-text">
+      <span class="alert-title" id="errorBannerTitle">Sensor error</span>
+      <span class="alert-detail" id="errorBannerDetail">—</span>
+    </div>
+    <div class="alert-time" id="errorBannerTime">—</div>
+    <button class="alert-close" id="errorBannerClose" title="Dismiss">&times;</button>
+  </div>
+
   <!-- Main Grid -->
   <div class="grid">
     <section class="card" id="card-temp">
@@ -1177,6 +1343,24 @@
     </div>
   </div>
 
+  <!-- Error Log Panel -->
+  <div class="history-panel" id="errorPanel">
+    <div class="history-header" id="errorToggle">
+      <span class="label">
+        ⚠️ Device Errors
+        <span class="count" id="errorCount">(0 records)</span>
+      </span>
+      <span class="toggle-icon" id="errorToggleIcon">▼</span>
+    </div>
+    <div class="history-body" id="errorBody">
+      <div id="errorContent">
+        <div class="history-loading">
+          <span class="spinner"></span> Loading errors...
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="msg" id="msg"></div>
 
   <footer class="footer">
@@ -1195,6 +1379,9 @@
   const SUPABASE_URL = "https://sjokemojlhvwsiexnlcn.supabase.co";
   const SUPABASE_KEY = "sb_publishable_bxneUVEnXbVkNdPPST-i7w_dmv2sKpl";
   const TABLE        = "sensor_data";
+  const ERROR_TABLE  = "sensor_errors";
+  const ERROR_LIMIT  = 50;
+  const ERROR_ACTIVE_MS = 10 * 60 * 1000;
   const HISTORY      = 48;
   const FALLBACK_MS  = 7000;
   const CONNECTION_TIMEOUT = 10000;
@@ -1215,6 +1402,9 @@
   let reconnectAnnounced = false;
   let historyOpen = false;
   let isRefreshing = false;
+  let errors = [];
+  let errorPanelOpen = false;
+  let dismissedErrorId = null;
 
   // Device states
   const deviceStates = {
@@ -1418,6 +1608,97 @@
     renderHistory(fullHistory);
   }
 
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[c]);
+
+  const errorAge = ts => Date.now() - new Date(ts).getTime();
+
+  function relativeTime(ts) {
+    const diff = errorAge(ts);
+    if (diff < 60000) return "just now";
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return mins + "m ago";
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + "h ago";
+    return Math.floor(hrs / 24) + "d ago";
+  }
+
+  function renderErrorBanner() {
+    const banner = $("errorBanner");
+    const latest = errors[0];
+
+    if (!latest || latest.id === dismissedErrorId || errorAge(latest.created_at) > ERROR_ACTIVE_MS) {
+      banner.classList.remove("show");
+      return;
+    }
+
+    $("errorBannerTitle").textContent = latest.error_type || "SENSOR ERROR";
+    $("errorBannerDetail").textContent = latest.error_message || "The device reported an error with no detail.";
+    $("errorBannerTime").textContent = relativeTime(latest.created_at);
+    banner.classList.add("show");
+  }
+
+  function renderErrors() {
+    const container = $("errorContent");
+    const count = $("errorCount");
+    const active = errors.filter(e => errorAge(e.created_at) <= ERROR_ACTIVE_MS).length;
+
+    count.textContent = active > 0
+      ? `(${active} active · ${errors.length} total)`
+      : `(${errors.length} records)`;
+    count.className = "count" + (active > 0 ? " alert" : "");
+
+    if (!errors.length) {
+      container.innerHTML = `<div class="history-empty">✓ No errors reported by the device</div>`;
+      return;
+    }
+
+    container.innerHTML = `<div class="error-list">` + errors.map(row => {
+      const when = new Date(row.created_at);
+      const recent = errorAge(row.created_at) <= ERROR_ACTIVE_MS;
+      return `<div class="error-item${recent ? " recent" : ""}">
+        <span class="bar"></span>
+        <div class="body">
+          <div class="type">${esc(row.error_type || "UNKNOWN_ERROR")}</div>
+          <div class="message">${esc(row.error_message || "No detail reported.")}</div>
+        </div>
+        <div class="when">${relativeTime(row.created_at)}<span class="abs">${when.toLocaleDateString()} ${when.toLocaleTimeString()}</span></div>
+      </div>`;
+    }).join("") + `</div>`;
+  }
+
+  async function loadErrors() {
+    const { data, error } = await supa
+      .from(ERROR_TABLE)
+      .select("id,error_type,error_message,created_at")
+      .order("created_at", { ascending: false })
+      .limit(ERROR_LIMIT);
+
+    if (error) {
+      let msg = error.message;
+      if (error.code === "PGRST205" || /not find the table/i.test(error.message))
+        msg = `Table "${ERROR_TABLE}" not found. Run sql/sensor_errors.sql in the Supabase SQL editor.`;
+      $("errorContent").innerHTML = `<div class="history-empty">Error log unavailable: ${esc(msg)}</div>`;
+      $("errorCount").textContent = "(unavailable)";
+      return;
+    }
+
+    errors = data || [];
+    renderErrors();
+    renderErrorBanner();
+  }
+
+  function pushError(row) {
+    if (errors.some(e => e.id === row.id)) return;
+    errors.unshift(row);
+    if (errors.length > ERROR_LIMIT) errors.pop();
+    dismissedErrorId = null;
+    renderErrors();
+    renderErrorBanner();
+    showMsg(`⚠️ ${row.error_type || "SENSOR ERROR"} — ${row.error_message || "device reported an error"}`);
+  }
+
   // Check connection status
   function checkConnection() {
     const now = Date.now();
@@ -1479,7 +1760,12 @@
     const m = String(Math.floor(diff / 60)).padStart(2, '0');
     const s = String(diff % 60).padStart(2, '0');
     $("uptimeBadge").textContent = `⏱ ${m}:${s}`;
+    if (errors.length) renderErrorBanner();
   }, 1000);
+
+  setInterval(() => {
+    if (errors.length && errorPanelOpen) renderErrors();
+  }, 30000);
 
   function drawTrace(svgId, values) {
     const svg = $(svgId);
@@ -1639,6 +1925,7 @@
     setStatus("poll", "polling");
     pollTimer = setInterval(async () => {
       await loadHistory();
+      await loadErrors();
       if (rows.length > 0) {
         lastDataTime = Date.now();
       }
@@ -1715,6 +2002,17 @@
     }, 5000);
   }
 
+  function subscribeErrors() {
+    supa.channel("greenhouse-errors")
+      .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: ERROR_TABLE },
+        payload => pushError(payload.new)
+      )
+      .subscribe();
+
+    setInterval(loadErrors, 15000);
+  }
+
   // Start connection monitor
   function startConnectionMonitor() {
     connectionCheckInterval = setInterval(checkConnection, 2000);
@@ -1734,6 +2032,19 @@
       body.classList.remove("open");
       icon.classList.remove("open");
     }
+  });
+
+  // Error log toggle
+  $("errorToggle").addEventListener("click", async () => {
+    errorPanelOpen = !errorPanelOpen;
+    $("errorBody").classList.toggle("open", errorPanelOpen);
+    $("errorToggleIcon").classList.toggle("open", errorPanelOpen);
+    if (errorPanelOpen) await loadErrors();
+  });
+
+  $("errorBannerClose").addEventListener("click", () => {
+    if (errors.length) dismissedErrorId = errors[0].id;
+    $("errorBanner").classList.remove("show");
   });
 
   // Device controls
@@ -1757,6 +2068,7 @@
     
     try {
       await loadHistory();
+      await loadErrors();
       if (rows.length > 0) {
         lastDataTime = Date.now();
         wasOffline = false;
@@ -1775,7 +2087,9 @@
   });
 
   await loadHistory();
+  await loadErrors();
   subscribe();
+  subscribeErrors();
   startConnectionMonitor();
   startTimer();
 
