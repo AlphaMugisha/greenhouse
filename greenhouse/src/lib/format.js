@@ -107,6 +107,15 @@ export function errorStreak(errors, type) {
 export const activeErrors = errors =>
   errors.filter(e => errorAge(e.created_at) <= ERROR_ACTIVE_MS);
 
+// The board is reachable and writing rows, but the sensor on the end of
+// it is not answering. That is a different problem from the board going
+// quiet, and it reads differently to whoever has to fix it.
+export const activeSensorFault = errors =>
+  activeErrors(errors).find(e => String(e.error_type || "").startsWith("DHT11"));
+
+// How many times this fault has repeated in the current run.
+export const faultRepeats = (errors, type) => errorStreak(errors, type);
+
 // Reproduces the two lines the firmware wrote to its 16x2 LCD, with the
 // same wording and the same precedence: an active fault wins, then link
 // state, then the reading.
@@ -125,7 +134,9 @@ export function deviceScreenLines(rows, errors, offline) {
     }
   }
   if (!rows.length) return ["GREENHOUSE", "Starting up...", false];
-  if (offline) return ["WIFI LOST", "Reconnecting...", true];
+  // The board going quiet tells us nothing about why. Do not name a
+  // cause the dashboard cannot actually observe.
+  if (offline) return ["SENSOR OFFLINE", "No readings", true];
   const latest = rows[rows.length - 1];
   return [
     "Temp: " + Number(latest.temperature).toFixed(1) + " C",

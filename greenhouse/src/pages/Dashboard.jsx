@@ -4,16 +4,20 @@ import { Fan, Wind, RefreshCw } from "lucide-react";
 import { useTick } from "../hooks/useTick";
 import { usePreloader } from "../hooks/usePreloader";
 import { useSensorFeed } from "../hooks/useSensorFeed";
+import { useDeviceState } from "../hooks/useDeviceState";
 import { CONNECTION_TIMEOUT } from "../lib/supabase";
 import {
   BANDS, climateNote, implausible, deriveMetrics, co2From,
-  activeErrors, groupErrors
+  activeErrors, activeSensorFault, groupErrors
 } from "../lib/format";
 import { Ridge } from "../components/Ridge";
 import { ConnectionBar } from "../components/ConnectionBar";
+import { SensorAlert } from "../components/SensorAlert";
 import { AlertBanner } from "../components/AlertBanner";
 import { ClimatePane } from "../components/ClimatePane";
 import { DeviceCard } from "../components/DeviceCard";
+import { SystemBar } from "../components/SystemBar";
+import { ExportButton } from "../components/ExportButton";
 import { BoardScreen } from "../components/BoardScreen";
 import { Delta } from "../components/Delta";
 import { Trace } from "../components/Trace";
@@ -22,7 +26,7 @@ export default function Dashboard() {
   useTick(1000);                       // one clock drives every elapsed value
   const { rows, errors, lastDataAt, status, msg, refresh, refreshing, ready } = useSensorFeed();
   const [dismissed, setDismissed] = useState(null);
-  const [devices, setDevices] = useState({ fan: false, vent: false });
+  const [devices, setDevices] = useState({ vent: false });   // the inlet has no relay yet
   const startRef = useRef(Date.now());
 
   usePreloader(ready);
@@ -35,6 +39,14 @@ export default function Dashboard() {
 
   const latest = rows[rows.length - 1];
   const prev = rows[rows.length - 2];
+
+  // The fan and the master switch are backed by real hardware, so they
+  // are driven by what the board reports rather than by local state.
+  const { fan, system, error: cmdError } =
+    useDeviceState(
+      latest ? latest.fan_status : null,
+      latest ? latest.system_on : null
+    );
   const t = latest ? Number(latest.temperature) : NaN;
   const h = latest ? Number(latest.humidity) : NaN;
   const co2 = latest ? co2From(t, h) : NaN;
@@ -49,6 +61,7 @@ export default function Dashboard() {
   );
 
   const active = activeErrors(errors).length;
+  const fault = activeSensorFault(errors);
   const incidents = groupErrors(errors).length;
   const toggle = key => setDevices(d => ({ ...d, [key]: !d[key] }));
 
@@ -72,13 +85,25 @@ export default function Dashboard() {
             <Link className={"nav-btn" + (active > 0 ? " alert" : "")} to="/errors">
               Errors <span className="tag">{active > 0 ? `${active} active` : incidents}</span>
             </Link>
+            <ExportButton variant="nav" />
           </>
         }
       />
 
-      <ConnectionBar offline={offline} seconds={sinceData} />
+      {offline || fault
+        ? <SensorAlert
+            offline={offline}
+            fault={fault}
+            errors={errors}
+            secondsSinceData={sinceData}
+          />
+        : <ConnectionBar offline={false} seconds={sinceData} />}
 
-      <AlertBanner errors={errors} dismissed={dismissed} onDismiss={setDismissed} />
+      {/* the small banner only carries faults the big one is not already
+          showing, so nothing is said twice */}
+      {!fault && (
+        <AlertBanner errors={errors} dismissed={dismissed} onDismiss={setDismissed} />
+      )}
 
       <div className="panes climate">
         <ClimatePane
@@ -125,15 +150,24 @@ export default function Dashboard() {
         </section>
       </div>
 
+      <SystemBar
+        on={system.on}
+        pending={system.pending}
+        timedOut={system.timedOut}
+        onToggle={system.toggle}
+      />
+
       <div className="panes rig">
         <DeviceCard id="card-fan" icon={Fan} name="Fan" spins
-          on={devices.fan} onToggle={() => toggle("fan")} />
+          on={fan.on} onToggle={fan.toggle}
+          mode={fan.mode} pending={fan.pending} timedOut={fan.timedOut}
+          unknown={fan.unknown} onAuto={fan.setAuto} standby={fan.standby} />
         <DeviceCard id="card-vent" icon={Wind} name="Air inlet"
           on={devices.vent} onToggle={() => toggle("vent")} />
         <BoardScreen rows={rows} errors={errors} offline={offline} />
       </div>
 
-      {msg && <div className="msg">{msg}</div>}
+      {(cmdError || msg) && <div className="msg">{cmdError || msg}</div>}
 
       <footer className="footer">
         <span>

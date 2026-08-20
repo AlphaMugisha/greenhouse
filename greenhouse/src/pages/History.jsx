@@ -3,6 +3,7 @@ import { supa, TABLE } from "../lib/supabase";
 import { fmt } from "../lib/format";
 import { usePreloader } from "../hooks/usePreloader";
 import { Ridge, BackLink } from "../components/Ridge";
+import { ExportButton } from "../components/ExportButton";
 
 const LIMITS = [100, 500, 2000];
 const NBSP = " ";
@@ -104,6 +105,7 @@ export default function History() {
               </button>
             ))}
             <button className="chip" onClick={load}>Refresh</button>
+            <ExportButton />
           </div>
         </div>
 

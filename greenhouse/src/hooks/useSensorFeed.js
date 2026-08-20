@@ -20,7 +20,7 @@ export function useSensorFeed() {
   const loadReadings = useCallback(async () => {
     const { data, error } = await supa
       .from(TABLE)
-      .select("temperature,humidity,created_at")
+      .select("*")   // resilient to columns added by later migrations
       .order("created_at", { ascending: false })
       .limit(HISTORY);
 

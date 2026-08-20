@@ -4,6 +4,7 @@ import { groupErrors, activeErrors, errorTitle, relativeTime } from "../lib/form
 import { usePreloader } from "../hooks/usePreloader";
 import { useTick } from "../hooks/useTick";
 import { Ridge, BackLink } from "../components/Ridge";
+import { ExportButton } from "../components/ExportButton";
 import { IncidentList } from "../components/IncidentList";
 
 const NBSP = " ";
@@ -98,7 +99,10 @@ export default function Errors() {
           <span className="title">
             Incidents<span className="count">({groups.length})</span>
           </span>
-          <button className="chip" onClick={load}>Refresh</button>
+          <div className="controls">
+            <button className="chip" onClick={load}>Refresh</button>
+            <ExportButton />
+          </div>
         </div>
 
         {loading && (

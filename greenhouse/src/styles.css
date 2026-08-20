@@ -353,6 +353,63 @@ body {
 .connection-status .title { font-size: 13px; font-weight: 600; }
 .connection-status .subtitle { font-size: 12px; color: var(--stem); }
 
+/* ---------- master switch ---------- */
+
+/* deliberately the same shell as .connection-status: both are
+   full-width statements about the rig as a whole */
+.system-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: var(--pane);
+  border: 1px solid var(--mullion);
+  border-left: 3px solid var(--frond);
+  border-radius: var(--frame);
+  margin-bottom: 14px;
+  box-shadow: var(--lift);
+  transition: border-color 0.4s var(--ease), background 0.4s var(--ease);
+}
+
+.system-bar.standby {
+  border-left-color: var(--stem);
+  background: var(--offline-bg);
+}
+.system-bar.pending { border-left-color: var(--sodium); }
+.system-bar.stale   { border-left-color: var(--rust); }
+
+.system-bar .icon-container {
+  width: 34px; height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--glass);
+  color: var(--frond);
+  flex-shrink: 0;
+  transition: color 0.4s var(--ease);
+}
+
+.system-bar.standby .icon-container { color: var(--stem); }
+.system-bar.pending .icon-container { color: var(--sodium); }
+.system-bar.stale   .icon-container { color: var(--rust); }
+
+.system-bar .status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.system-bar .title    { font-size: 13px; font-weight: 600; }
+.system-bar .subtitle { font-size: 12px; color: var(--stem); }
+
+/* the whole rig reads as inactive while suspended */
+.system-bar.standby ~ .panes.rig .device-card {
+  opacity: 0.72;
+  transition: opacity 0.4s var(--ease);
+}
+
 .connection-status .timer {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
@@ -432,19 +489,13 @@ body {
 
 /* ---------- glazing: panes held in hairline bars ---------- */
 
+/* Each reading gets its own card with air around it, rather than all
+   three sharing one frame divided by hairlines. */
 .panes {
   display: grid;
-  gap: 1px;
-  background: var(--mullion);
-  border: 1px solid var(--mullion);
-  border-radius: var(--frame);
-  overflow: hidden;
+  gap: 14px;
   margin-bottom: 14px;
-  box-shadow: var(--lift);
-  transition: box-shadow 0.45s var(--ease);
 }
-
-.panes:hover { box-shadow: var(--lift-hover); }
 
 /* base is the phone layout: one pane per row */
 .panes.climate { grid-template-columns: 1fr; }
@@ -454,11 +505,19 @@ body {
   background: var(--pane);
   padding: 20px 18px;
   position: relative;
-  /* background only — a transform here would tear the 1px seams */
-  transition: background 0.35s var(--ease);
+  border: 1px solid var(--mullion);
+  border-radius: var(--frame);
+  box-shadow: var(--lift);
+  transition: background 0.35s var(--ease), box-shadow 0.45s var(--ease),
+              transform 0.35s var(--ease);
 }
 
-.pane:hover { background: var(--pane-hover); }
+/* free-standing now, so it can lift on hover without tearing a seam */
+.pane:hover {
+  background: var(--pane-hover);
+  box-shadow: var(--lift-hover);
+  transform: translateY(-2px);
+}
 
 /* light filling the house, pane by pane */
 .panes .pane { animation: raise 0.55s var(--ease) backwards; }
@@ -629,6 +688,9 @@ svg { flex-shrink: 0; }
 #card-co2 .trace .fill { fill: var(--tint-stem-soft); }
 
 .card.offline-mode { background: var(--offline-bg); }
+
+/* the board screen sits in the same row and matches its neighbours */
+.screen-pane { border-radius: var(--frame); }
 .card.offline-mode .value-number .num { color: var(--stem); }
 
 /* ---------- device controls ---------- */
@@ -671,6 +733,44 @@ svg { flex-shrink: 0; }
 
 .indicator .dot.on { background: var(--frond); box-shadow: 0 0 0 3px var(--dot-glow); }
 
+/* command sent, board has not confirmed yet */
+.indicator .dot.pending {
+  background: var(--sodium);
+  animation: dot-pulse 1.1s var(--ease) infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--tint-sodium-glow); }
+  50%      { box-shadow: 0 0 0 4px transparent; }
+}
+
+/* which rule is in charge of the fan right now */
+.device-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--stem);
+  margin-bottom: 14px;
+}
+
+.device-mode.manual { color: var(--sodium); }
+
+.link-btn {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.link-btn:hover { color: var(--soil); }
+
 .toggle-btn {
   font-family: inherit;
   font-size: 12px;
@@ -689,6 +789,25 @@ svg { flex-shrink: 0; }
 .toggle-btn:active { transform: scale(0.96); }
 .toggle-btn.on { background: var(--frond); border-color: var(--frond); color: var(--on-accent); }
 .toggle-btn.on:hover { background: var(--soil); border-color: var(--soil); color: var(--pane); }
+
+/* in flight: still readable, but clearly not accepting another click */
+.toggle-btn.busy,
+.toggle-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+
+.toggle-btn:disabled:hover {
+  background: var(--pane);
+  color: var(--soil);
+}
+
+.toggle-btn.on:disabled:hover {
+  background: var(--frond);
+  border-color: var(--frond);
+  color: var(--on-accent);
+}
 
 /* ---------- board screen: the one dark object ---------- */
 
@@ -859,6 +978,62 @@ svg { flex-shrink: 0; }
 .chip:active { transform: scale(0.96); }
 .chip.on { background: var(--soil); border-color: var(--soil); color: var(--pane); }
 
+/* ---------- export ---------- */
+
+.export-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.export-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.export-chip:disabled,
+.export-chip.busy {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+}
+
+.export-chip:disabled:hover {
+  border-color: var(--mullion);
+  color: var(--stem);
+}
+
+.export-wrap.nav { display: inline-flex; }
+
+/* matches the History / Errors links it sits beside */
+.export-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-nav:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+}
+.export-nav:disabled:hover { background: transparent; color: var(--soil); }
+
+.export-note {
+  font-size: 12px;
+  color: var(--stem);
+}
+
+.export-note.bad { color: var(--rust); }
+
+.spinner.sm {
+  width: 11px;
+  height: 11px;
+  border-width: 2px;
+}
+
 /* ---------- reading table ---------- */
 
 .table-wrap { max-height: 62vh; overflow-y: auto; }
@@ -1018,6 +1193,167 @@ svg { flex-shrink: 0; }
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   flex-shrink: 0;
+}
+
+
+/* ---------- the loud one ----------
+   Only on screen when something is actually wrong, so it still carries
+   weight when it appears. Big type, a slow breathing edge, and the
+   board's own words underneath rather than a guess at the cause.   */
+
+.sensor-alert {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 22px 20px;
+  margin-bottom: 14px;
+  border-radius: var(--frame);
+  background: var(--pane);
+  border: 1px solid var(--rust);
+  box-shadow: var(--lift);
+  overflow: hidden;
+  animation: alertIn 0.5s var(--spring);
+}
+
+@keyframes alertIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* a slow wash across the card: enough to catch the eye from across the
+   room, slow enough not to nag while you are working on the fix */
+.sensor-alert .sa-glow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, var(--tint-rust) 50%, transparent 80%);
+  background-size: 250% 100%;
+  animation: alertSweep 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes alertSweep {
+  0%   { background-position: 120% 0; }
+  100% { background-position: -60% 0; }
+}
+
+.sensor-alert > *:not(.sa-glow) { position: relative; z-index: 1; }
+
+.sensor-alert .sa-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--tint-rust);
+  color: var(--rust);
+  animation: alertBeat 2.4s ease-in-out infinite;
+}
+
+@keyframes alertBeat {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 var(--tint-rust); }
+  50%      { transform: scale(1.06); box-shadow: 0 0 0 12px transparent; }
+}
+
+.sensor-alert .sa-body { flex: 1; min-width: 0; }
+
+.sensor-alert .sa-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-variation-settings: 'opsz' 96;
+  font-size: clamp(21px, 3.2vw, 29px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--rust);
+}
+
+.sensor-alert .sa-lede {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--soil);
+  margin-top: 7px;
+  max-width: 62ch;
+}
+
+/* the board's own error row, quoted rather than paraphrased */
+.sensor-alert .sa-detail {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.sensor-alert .sa-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  padding: 4px 10px;
+  border-radius: 100px;
+  background: var(--tint-rust);
+  color: var(--rust);
+}
+
+.sensor-alert .sa-repeats,
+.sensor-alert .sa-ago {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--stem);
+}
+
+.sensor-alert .sa-message {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--stem);
+  margin-top: 8px;
+  word-break: break-word;
+}
+
+.sensor-alert .sa-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 9px 16px;
+  border-radius: 100px;
+  border: 1px solid var(--rust);
+  color: var(--rust);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.22s var(--ease), color 0.22s var(--ease),
+              transform 0.16s var(--ease);
+}
+
+.sensor-alert .sa-action:hover { background: var(--rust); color: var(--pane); }
+.sensor-alert .sa-action:active { transform: scale(0.96); }
+.sensor-alert .sa-action svg { transition: transform 0.25s var(--ease); }
+.sensor-alert .sa-action:hover svg { transform: translateX(3px); }
+
+.sensor-alert .sa-meta {
+  display: none;   /* base: the lede already carries the elapsed time */
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.sensor-alert .sa-meta-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--stem);
+}
+
+.sensor-alert .sa-meta-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  color: var(--rust);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- toast ---------- */
@@ -1194,6 +1530,9 @@ svg { flex-shrink: 0; }
   .incident { padding: 16px 20px; flex-wrap: nowrap; }
   .incident .when { width: auto; padding-left: 0; text-align: right; }
   .incident .when .abs { display: block; margin-left: 0; margin-top: 3px; }
+
+  .sensor-alert { padding: 26px 24px; gap: 20px; }
+  .sensor-alert .sa-meta { display: flex; }
 
   /* CO2 spans the pair above it here, so it is alone on its row and
      its content centres rather than hugging the left edge */
