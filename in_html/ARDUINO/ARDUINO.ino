@@ -1,6 +1,9 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <DHT.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 // =====================================================
 // WIFI
@@ -16,16 +19,15 @@ const char* WIFI_PASSWORD = "NGA@2026!";
 
 const char* SUPABASE_URL = "https://sjokemojlhvwsiexnlcn.supabase.co";
 
-// Put your Supabase PUBLISHABLE/ANON key here
 const char* SUPABASE_KEY = "sb_publishable_bxneUVEnXbVkNdPPST-i7w_dmv2sKpl";
 
 
 // =====================================================
-// DHT11
+// DHT21
 // =====================================================
 
-#define DHT_PIN 19
-#define DHT_TYPE DHT11
+#define DHT_PIN 4
+#define DHT_TYPE DHT21
 
 DHT dht(DHT_PIN, DHT_TYPE);
 
@@ -36,13 +38,57 @@ DHT dht(DHT_PIN, DHT_TYPE);
 
 #define RELAY_PIN 18
 
-// Fan turns ON when temperature is greater than 10°C
-float temperatureLimit = 1.9;
+
+// =====================================================
+// HYSTERESIS TEMPERATURE SETTINGS
+// =====================================================
+//
+// FAN ON  -> 40°C or higher
+// FAN OFF -> 30°C or lower
+//
+// Between 30°C and 40°C:
+// Keep the previous fan state.
+//
+// IMPORTANT:
+// If the ESP32 starts at 35°C, the fan stays OFF.
+// The fan only turns ON after temperature reaches 40°C.
+//
+
+float fanOnTemperature = 40.0;
+float fanOffTemperature = 30.0;
 
 
-// Active-LOW relay: LOW closes the contact and starts the fan.
-// Every fan change goes through here so the polarity is written once.
+// =====================================================
+// OLED
+// =====================================================
+
+#define OLED_SDA 33
+#define OLED_SCL 32
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+
+#define OLED_RESET -1
+#define OLED_ADDRESS 0x3C
+
+Adafruit_SSD1306 display(
+  SCREEN_WIDTH,
+  SCREEN_HEIGHT,
+  &Wire,
+  OLED_RESET
+);
+
+
+// =====================================================
+// FAN CONTROL
+// =====================================================
+
 void applyFan(bool on) {
+
+  // Relay is ACTIVE-LOW
+  //
+  // LOW  = FAN ON
+  // HIGH = FAN OFF
 
   digitalWrite(
     RELAY_PIN,
@@ -52,84 +98,137 @@ void applyFan(bool on) {
 
 
 // =====================================================
-// SETUP
+// OLED DISPLAY
 // =====================================================
 
-void setup() {
+void updateOLED(
+  float temperature,
+  float humidity,
+  bool fanStatus,
+  bool systemOn
+) {
 
-  Serial.begin(115200);
+  display.clearDisplay();
 
-  delay(1000);
-
-  Serial.println();
-  Serial.println("==============================");
-  Serial.println("   GREENHOUSE ESP32 SYSTEM");
-  Serial.println("==============================");
-
-  // -----------------------------
-  // Relay
-  // -----------------------------
-
-  pinMode(RELAY_PIN, OUTPUT);
-
-  // Start with the fan off until the first reading decides
-  applyFan(false);
+  display.setTextColor(
+    SSD1306_WHITE
+  );
 
 
-  // -----------------------------
-  // DHT11
-  // -----------------------------
+  // ===================================================
+  // TITLE
+  // ===================================================
 
-  dht.begin();
+  display.setTextSize(1);
 
-  Serial.println("DHT11 started.");
-  Serial.println("DHT11 DATA: GPIO 19");
+  display.setCursor(
+    0,
+    0
+  );
 
-  Serial.println("Relay: GPIO 18");
+  display.println(
+    "GREENHOUSE SYSTEM"
+  );
 
-  
-  // -----------------------------
-  // WiFi
-  // -----------------------------
 
-  Serial.println();
-  Serial.println("Connecting to WiFi...");
+  display.drawLine(
+    0,
+    10,
+    127,
+    10,
+    SSD1306_WHITE
+  );
 
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-  int attempts = 0;
+  // ===================================================
+  // TEMPERATURE
+  // ===================================================
 
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+  display.setTextSize(1);
 
-    delay(500);
+  display.setCursor(
+    0,
+    16
+  );
 
-    Serial.print(".");
+  display.print(
+    "Temp: "
+  );
 
-    attempts++;
-  }
 
-  Serial.println();
+  display.setTextSize(2);
 
-  if (WiFi.status() == WL_CONNECTED) {
+  display.print(
+    temperature,
+    1
+  );
 
-    Serial.println("WiFi connected!");
 
-    Serial.print("ESP32 IP address: ");
-    Serial.println(WiFi.localIP());
+  display.setTextSize(1);
+
+  display.println(
+    " C"
+  );
+
+
+  // ===================================================
+  // HUMIDITY
+  // ===================================================
+
+  display.setCursor(
+    0,
+    36
+  );
+
+  display.print(
+    "Humidity: "
+  );
+
+  display.print(
+    humidity,
+    1
+  );
+
+  display.println(
+    " %"
+  );
+
+
+  // ===================================================
+  // FAN
+  // ===================================================
+
+  display.setCursor(
+    0,
+    52
+  );
+
+  display.print(
+    "Fan: "
+  );
+
+
+  if (!systemOn) {
+
+    display.println(
+      "OFF"
+    );
+
+  } else if (fanStatus) {
+
+    display.println(
+      "ON"
+    );
 
   } else {
 
-    Serial.println("ERROR: Could not connect to WiFi.");
-
-    sendError(
-      "WIFI_ERROR",
-      "ESP32 could not connect to WiFi"
+    display.println(
+      "OFF"
     );
   }
 
-  Serial.println();
-  Serial.println("System ready.");
-  Serial.println("==============================");
+
+  display.display();
 }
 
 
@@ -137,11 +236,18 @@ void setup() {
 // SEND ERROR TO SUPABASE
 // =====================================================
 
-void sendError(String errorType, String errorMessage) {
+void sendError(
+  String errorType,
+  String errorMessage
+) {
 
-  if (WiFi.status() != WL_CONNECTED) {
+  if (
+    WiFi.status() != WL_CONNECTED
+  ) {
 
-    Serial.println("Cannot send error: WiFi disconnected.");
+    Serial.println(
+      "Cannot send error: WiFi disconnected."
+    );
 
     return;
   }
@@ -149,9 +255,14 @@ void sendError(String errorType, String errorMessage) {
 
   HTTPClient http;
 
-  String url = String(SUPABASE_URL) + "/rest/v1/sensor_errors";
+
+  String url =
+    String(SUPABASE_URL) +
+    "/rest/v1/sensor_errors";
+
 
   http.begin(url);
+
 
   http.addHeader(
     "Content-Type",
@@ -165,7 +276,8 @@ void sendError(String errorType, String errorMessage) {
 
   http.addHeader(
     "Authorization",
-    String("Bearer ") + SUPABASE_KEY
+    String("Bearer ") +
+    SUPABASE_KEY
   );
 
   http.addHeader(
@@ -174,41 +286,71 @@ void sendError(String errorType, String errorMessage) {
   );
 
 
-  // Create JSON
-
   String json = "{";
 
+
   json += "\"error_type\":\"";
+
   json += errorType;
+
   json += "\",";
 
+
   json += "\"error_message\":\"";
+
   json += errorMessage;
+
   json += "\"";
+
 
   json += "}";
 
 
   Serial.println();
-  Serial.println("Sending error to Supabase:");
-  Serial.println(json);
+
+  Serial.println(
+    "Sending error to Supabase:"
+  );
+
+  Serial.println(
+    json
+  );
 
 
-  int responseCode = http.POST(json);
+  int responseCode =
+    http.POST(
+      json
+    );
 
 
-  Serial.print("Error HTTP Response: ");
-  Serial.println(responseCode);
+  Serial.print(
+    "Error HTTP Response: "
+  );
+
+  Serial.println(
+    responseCode
+  );
 
 
-  if (responseCode > 0) {
+  if (
+    responseCode > 0
+  ) {
 
-    Serial.println("Error sent successfully.");
+    Serial.println(
+      "Error sent successfully."
+    );
 
   } else {
 
-    Serial.print("Error sending error: ");
-    Serial.println(http.errorToString(responseCode));
+    Serial.print(
+      "Error sending error: "
+    );
+
+    Serial.println(
+      http.errorToString(
+        responseCode
+      )
+    );
   }
 
 
@@ -217,31 +359,24 @@ void sendError(String errorType, String errorMessage) {
 
 
 // =====================================================
-// READ FAN COMMAND FROM SUPABASE
+// GET DEVICE STATE
 // =====================================================
 
-// The dashboard cannot reach this board directly, so commands are
-// left in device_state and picked up here once per loop.
-//
-// Both the fan mode and the master switch arrive in one request.
-//
-// Anything unexpected - no WiFi, a failed request, a malformed body -
-// falls back to fan "auto" with the system ON. That is deliberate: a
-// greenhouse that loses its downlink must keep cooling itself, so the
-// failure mode is "carry on", never "shut down".
+void getDeviceState(
+  String &fanMode,
+  bool &systemOn
+) {
 
-// Both values come back through references rather than a struct. The
-// Arduino IDE generates prototypes for every function and places them
-// above the whole sketch, so a custom return type would be named
-// before it is declared and the sketch would not compile.
-
-void getDeviceState(String &fanMode, bool &systemOn) {
+  // Default values
 
   fanMode = "auto";
+
   systemOn = true;
 
 
-  if (WiFi.status() != WL_CONNECTED) {
+  if (
+    WiFi.status() != WL_CONNECTED
+  ) {
 
     return;
   }
@@ -249,11 +384,16 @@ void getDeviceState(String &fanMode, bool &systemOn) {
 
   HTTPClient http;
 
+
   String url =
     String(SUPABASE_URL) +
     "/rest/v1/device_state?id=eq.1&select=fan_mode,system_on";
 
-  http.begin(url);
+
+  http.begin(
+    url
+  );
+
 
   http.addHeader(
     "apikey",
@@ -262,39 +402,62 @@ void getDeviceState(String &fanMode, bool &systemOn) {
 
   http.addHeader(
     "Authorization",
-    String("Bearer ") + SUPABASE_KEY
+    String("Bearer ") +
+    SUPABASE_KEY
   );
 
-  // Ask PostgREST for a single object instead of an array
   http.addHeader(
     "Accept",
     "application/vnd.pgrst.object+json"
   );
 
 
-  int responseCode = http.GET();
+  int responseCode =
+    http.GET();
 
 
-  if (responseCode == 200) {
+  if (
+    responseCode == 200
+  ) {
 
-    String body = http.getString();
+    String body =
+      http.getString();
 
-    // Body looks like: {"fan_mode":"on","system_on":true}
+
+    // =================================================
+    // FAN MODE
+    // =================================================
+
+    int start =
+      body.indexOf(
+        "\"fan_mode\":\""
+      );
 
 
-    // ---- fan mode ----
-
-    int start = body.indexOf("\"fan_mode\":\"");
-
-    if (start >= 0) {
+    if (
+      start >= 0
+    ) {
 
       start += 12;
 
-      int end = body.indexOf("\"", start);
 
-      if (end > start) {
+      int end =
+        body.indexOf(
+          "\"",
+          start
+        );
 
-        String value = body.substring(start, end);
+
+      if (
+        end > start
+      ) {
+
+        String value =
+          body.substring(
+            start,
+            end
+          );
+
 
         if (
           value == "on" ||
@@ -302,22 +465,33 @@ void getDeviceState(String &fanMode, bool &systemOn) {
           value == "auto"
         ) {
 
-          fanMode = value;
+          fanMode =
+            value;
         }
       }
     }
 
 
-    // ---- master switch ----
+    // =================================================
+    // SYSTEM ON
+    // =================================================
 
-    // Only an explicit false turns the system off. A missing or
-    // unreadable field leaves it running.
+    int sys =
+      body.indexOf(
+        "\"system_on\":"
+      );
 
-    int sys = body.indexOf("\"system_on\":");
 
-    if (sys >= 0) {
+    if (
+      sys >= 0
+    ) {
 
-      if (body.substring(sys + 12, sys + 17) == "false") {
+      if (
+        body.substring(
+          sys + 12,
+          sys + 17
+        ) == "false"
+      ) {
 
         systemOn = false;
       }
@@ -325,8 +499,13 @@ void getDeviceState(String &fanMode, bool &systemOn) {
 
   } else {
 
-    Serial.print("Could not read commands. HTTP ");
-    Serial.println(responseCode);
+    Serial.print(
+      "Could not read commands. HTTP "
+    );
+
+    Serial.println(
+      responseCode
+    );
   }
 
 
@@ -345,14 +524,20 @@ void sendSensorData(
   bool systemOn
 ) {
 
-  if (WiFi.status() != WL_CONNECTED) {
+  if (
+    WiFi.status() != WL_CONNECTED
+  ) {
 
-    Serial.println("WiFi disconnected.");
+    Serial.println(
+      "WiFi disconnected."
+    );
+
 
     sendError(
       "WIFI_ERROR",
       "WiFi disconnected while sending sensor data"
     );
+
 
     return;
   }
@@ -366,7 +551,9 @@ void sendSensorData(
     "/rest/v1/sensor_data";
 
 
-  http.begin(url);
+  http.begin(
+    url
+  );
 
 
   http.addHeader(
@@ -381,7 +568,8 @@ void sendSensorData(
 
   http.addHeader(
     "Authorization",
-    String("Bearer ") + SUPABASE_KEY
+    String("Bearer ") +
+    SUPABASE_KEY
   );
 
   http.addHeader(
@@ -398,35 +586,37 @@ void sendSensorData(
 
 
   json += "\"temperature\":";
-  json += String(temperature, 1);
+
+  json += String(
+    temperature,
+    1
+  );
 
 
   json += ",\"humidity\":";
-  json += String(humidity, 1);
+
+  json += String(
+    humidity,
+    1
+  );
 
 
   json += ",\"fan_status\":";
 
-  if (fanStatus) {
 
-    json += "true";
-
-  } else {
-
-    json += "false";
-  }
+  json +=
+    fanStatus
+      ? "true"
+      : "false";
 
 
   json += ",\"system_on\":";
 
-  if (systemOn) {
 
-    json += "true";
-
-  } else {
-
-    json += "false";
-  }
+  json +=
+    systemOn
+      ? "true"
+      : "false";
 
 
   json += "}";
@@ -437,43 +627,78 @@ void sendSensorData(
   // ===================================================
 
   Serial.println();
-  Serial.println("Sending data to Supabase:");
 
-  Serial.println(json);
+  Serial.println(
+    "Sending data to Supabase:"
+  );
+
+  Serial.println(
+    json
+  );
 
 
   // ===================================================
   // SEND
   // ===================================================
 
-  int responseCode = http.POST(json);
+  int responseCode =
+    http.POST(
+      json
+    );
 
 
-  Serial.print("Supabase HTTP Response: ");
-  Serial.println(responseCode);
+  Serial.print(
+    "Supabase HTTP Response: "
+  );
+
+  Serial.println(
+    responseCode
+  );
 
 
-  if (responseCode > 0) {
+  if (
+    responseCode > 0
+  ) {
 
-    String response = http.getString();
-
-    Serial.print("Supabase Response: ");
-    Serial.println(response);
+    String response =
+      http.getString();
 
 
-    if (responseCode == 201) {
+    Serial.print(
+      "Supabase Response: "
+    );
 
-      Serial.println("SUCCESS! Data saved to Supabase.");
+    Serial.println(
+      response
+    );
+
+
+    if (
+      responseCode == 201
+    ) {
+
+      Serial.println(
+        "SUCCESS! Data saved to Supabase."
+      );
 
     } else {
 
-      Serial.println("Supabase returned another response code.");
+      Serial.println(
+        "Supabase returned another response code."
+      );
     }
 
   } else {
 
-    Serial.print("ERROR sending data: ");
-    Serial.println(http.errorToString(responseCode));
+    Serial.print(
+      "ERROR sending data: "
+    );
+
+    Serial.println(
+      http.errorToString(
+        responseCode
+      )
+    );
 
 
     sendError(
@@ -488,6 +713,263 @@ void sendSensorData(
 
 
 // =====================================================
+// SETUP
+// =====================================================
+
+void setup() {
+
+  Serial.begin(
+    115200
+  );
+
+
+  delay(
+    1000
+  );
+
+
+  Serial.println();
+
+  Serial.println(
+    "=============================="
+  );
+
+  Serial.println(
+    "   GREENHOUSE ESP32 SYSTEM"
+  );
+
+  Serial.println(
+    "=============================="
+  );
+
+
+  // ===================================================
+  // RELAY
+  // ===================================================
+
+  pinMode(
+    RELAY_PIN,
+    OUTPUT
+  );
+
+
+  // Make sure fan starts OFF
+
+  applyFan(
+    false
+  );
+
+
+  // ===================================================
+  // DHT21
+  // ===================================================
+
+  dht.begin();
+
+
+  Serial.println(
+    "DHT21 started."
+  );
+
+
+  Serial.println(
+    "DHT21 DATA: GPIO 4"
+  );
+
+
+  Serial.println(
+    "Relay: GPIO 18"
+  );
+
+
+  // ===================================================
+  // TEMPERATURE SETTINGS
+  // ===================================================
+
+  Serial.println();
+
+  Serial.println(
+    "Fan temperature control:"
+  );
+
+
+  Serial.println(
+    "Fan ON  at 40.0 C"
+  );
+
+
+  Serial.println(
+    "Fan OFF at 30.0 C"
+  );
+
+
+  Serial.println(
+    "Between 30 C and 40 C: keep previous state"
+  );
+
+
+  // ===================================================
+  // OLED
+  // ===================================================
+
+  Serial.println();
+
+  Serial.println(
+    "Starting OLED..."
+  );
+
+
+  Wire.begin(
+    OLED_SDA,
+    OLED_SCL
+  );
+
+
+  if (
+    !display.begin(
+      SSD1306_SWITCHCAPVCC,
+      OLED_ADDRESS
+    )
+  ) {
+
+    Serial.println(
+      "ERROR: OLED not found!"
+    );
+
+  } else {
+
+    Serial.println(
+      "OLED started successfully."
+    );
+
+
+    display.clearDisplay();
+
+
+    display.setTextColor(
+      SSD1306_WHITE
+    );
+
+
+    display.setTextSize(
+      1
+    );
+
+
+    display.setCursor(
+      0,
+      0
+    );
+
+
+    display.println(
+      "GREENHOUSE"
+    );
+
+
+    display.println();
+
+
+    display.println(
+      "Starting system..."
+    );
+
+
+    display.display();
+
+
+    delay(
+      2000
+    );
+  }
+
+
+  // ===================================================
+  // WIFI
+  // ===================================================
+
+  Serial.println();
+
+  Serial.println(
+    "Connecting to WiFi..."
+  );
+
+
+  WiFi.begin(
+    WIFI_SSID,
+    WIFI_PASSWORD
+  );
+
+
+  int attempts = 0;
+
+
+  while (
+    WiFi.status() != WL_CONNECTED &&
+    attempts < 30
+  ) {
+
+    delay(
+      500
+    );
+
+
+    Serial.print(
+      "."
+    );
+
+
+    attempts++;
+  }
+
+
+  Serial.println();
+
+
+  if (
+    WiFi.status() == WL_CONNECTED
+  ) {
+
+    Serial.println(
+      "WiFi connected!"
+    );
+
+
+    Serial.print(
+      "ESP32 IP address: "
+    );
+
+
+    Serial.println(
+      WiFi.localIP()
+    );
+
+  } else {
+
+    Serial.println(
+      "ERROR: Could not connect to WiFi."
+    );
+
+
+    // Do not call sendError here because WiFi
+    // is not connected.
+  }
+
+
+  Serial.println();
+
+  Serial.println(
+    "System ready."
+  );
+
+
+  Serial.println(
+    "=============================="
+  );
+}
+
+
+// =====================================================
 // MAIN LOOP
 // =====================================================
 
@@ -497,11 +979,17 @@ void loop() {
   // CHECK WIFI
   // ===================================================
 
-  if (WiFi.status() != WL_CONNECTED) {
+  if (
+    WiFi.status() != WL_CONNECTED
+  ) {
 
-    Serial.println("WiFi disconnected. Reconnecting...");
+    Serial.println(
+      "WiFi disconnected. Reconnecting..."
+    );
+
 
     WiFi.disconnect();
+
 
     WiFi.begin(
       WIFI_SSID,
@@ -511,14 +999,21 @@ void loop() {
 
     int attempts = 0;
 
+
     while (
       WiFi.status() != WL_CONNECTED &&
       attempts < 20
     ) {
 
-      delay(500);
+      delay(
+        500
+      );
 
-      Serial.print(".");
+
+      Serial.print(
+        "."
+      );
+
 
       attempts++;
     }
@@ -527,20 +1022,25 @@ void loop() {
     Serial.println();
 
 
-    if (WiFi.status() == WL_CONNECTED) {
+    if (
+      WiFi.status() == WL_CONNECTED
+    ) {
 
-      Serial.println("WiFi reconnected!");
+      Serial.println(
+        "WiFi reconnected!"
+      );
 
     } else {
 
-      Serial.println("Could not reconnect to WiFi.");
-
-      sendError(
-        "WIFI_ERROR",
-        "ESP32 could not reconnect to WiFi"
+      Serial.println(
+        "Could not reconnect to WiFi."
       );
 
-      delay(5000);
+
+      delay(
+        5000
+      );
+
 
       return;
     }
@@ -551,28 +1051,49 @@ void loop() {
   // READ FAN COMMAND
   // ===================================================
 
-  // Read before the sensor, so a manual override still works
-  // when the DHT11 is broken.
-
   String fanMode;
+
   bool systemOn;
 
-  getDeviceState(fanMode, systemOn);
 
-  Serial.print("System: ");
-  Serial.println(systemOn ? "ON" : "STANDBY");
+  getDeviceState(
+    fanMode,
+    systemOn
+  );
 
-  Serial.print("Fan mode: ");
-  Serial.println(fanMode);
+
+  Serial.print(
+    "System: "
+  );
+
+
+  Serial.println(
+    systemOn
+      ? "ON"
+      : "STANDBY"
+  );
+
+
+  Serial.print(
+    "Fan mode: "
+  );
+
+
+  Serial.println(
+    fanMode
+  );
 
 
   // ===================================================
-  // READ DHT11
+  // READ DHT21
   // ===================================================
 
-  float temperature = dht.readTemperature();
+  float temperature =
+    dht.readTemperature();
 
-  float humidity = dht.readHumidity();
+
+  float humidity =
+    dht.readHumidity();
 
 
   // ===================================================
@@ -585,40 +1106,130 @@ void loop() {
   ) {
 
     Serial.println();
-    Serial.println("ERROR: DHT11 reading failed!");
+
+    Serial.println(
+      "ERROR: DHT21 reading failed!"
+    );
 
 
-    // A dead sensor must not take the fan away from the operator.
-    // "auto" has nothing to work with here, so the fan is left
-    // exactly as it was.
+    // =================================================
+    // OLED ERROR DISPLAY
+    // =================================================
 
-    if (!systemOn) {
+    display.clearDisplay();
 
-      applyFan(false);
 
-      Serial.println("System on standby: fan off.");
+    display.setTextColor(
+      SSD1306_WHITE
+    );
 
-    } else if (fanMode == "on") {
 
-      applyFan(true);
+    display.setTextSize(
+      1
+    );
 
-      Serial.println("Fan forced ON by dashboard.");
 
-    } else if (fanMode == "off") {
+    display.setCursor(
+      0,
+      0
+    );
 
-      applyFan(false);
 
-      Serial.println("Fan forced OFF by dashboard.");
+    display.println(
+      "GREENHOUSE SYSTEM"
+    );
+
+
+    display.drawLine(
+      0,
+      10,
+      127,
+      10,
+      SSD1306_WHITE
+    );
+
+
+    display.setCursor(
+      0,
+      20
+    );
+
+
+    display.println(
+      "DHT21 ERROR!"
+    );
+
+
+    display.println();
+
+
+    display.println(
+      "Check sensor wiring."
+    );
+
+
+    display.display();
+
+
+    // =================================================
+    // FAN CONTROL DURING SENSOR ERROR
+    // =================================================
+
+    if (
+      !systemOn
+    ) {
+
+      applyFan(
+        false
+      );
+
+
+      Serial.println(
+        "System on standby: fan off."
+      );
+
+    }
+
+    else if (
+      fanMode == "on"
+    ) {
+
+      applyFan(
+        true
+      );
+
+
+      Serial.println(
+        "Fan forced ON by dashboard."
+      );
+
+    }
+
+    else if (
+      fanMode == "off"
+    ) {
+
+      applyFan(
+        false
+      );
+
+
+      Serial.println(
+        "Fan forced OFF by dashboard."
+      );
     }
 
 
     sendError(
       "DHT_ERROR",
-      "DHT11 returned an invalid temperature or humidity reading"
+      "DHT21 returned an invalid temperature or humidity reading"
     );
 
 
-    delay(5000);
+    delay(
+      5000
+    );
+
 
     return;
   }
@@ -631,75 +1242,193 @@ void loop() {
   bool fanStatus;
 
 
-  if (!systemOn) {
+  // ===================================================
+  // SYSTEM OFF
+  // ===================================================
 
-    // -----------------------------------------------
-    // STANDBY: outranks the fan command and the
-    // temperature rule. Readings still go to Supabase,
-    // nothing is actuated.
-    // -----------------------------------------------
-
-    fanStatus = false;
-
-  } else if (fanMode == "on") {
-
-    // -----------------------------------------------
-    // FORCED ON BY THE DASHBOARD
-    // -----------------------------------------------
-
-    fanStatus = true;
-
-  } else if (fanMode == "off") {
-
-    // -----------------------------------------------
-    // FORCED OFF BY THE DASHBOARD
-    // -----------------------------------------------
+  if (
+    !systemOn
+  ) {
 
     fanStatus = false;
-
-  } else {
-
-    // -----------------------------------------------
-    // AUTO: the temperature decides
-    // -----------------------------------------------
-
-    fanStatus = temperature > temperatureLimit;
   }
 
 
-  applyFan(fanStatus);
+  // ===================================================
+  // MANUAL FAN ON
+  // ===================================================
+
+  else if (
+    fanMode == "on"
+  ) {
+
+    fanStatus = true;
+  }
 
 
   // ===================================================
-  // DISPLAY DATA IN SERIAL MONITOR
+  // MANUAL FAN OFF
+  // ===================================================
+
+  else if (
+    fanMode == "off"
+  ) {
+
+    fanStatus = false;
+  }
+
+
+  // ===================================================
+  // AUTOMATIC MODE
+  // ===================================================
+
+  else {
+
+    // This remembers the previous automatic
+    // fan state between loop cycles.
+
+    static bool previousFanStatus = false;
+
+
+    // =================================================
+    // 40°C OR HIGHER -> FAN ON
+    // =================================================
+
+    if (
+      temperature >= fanOnTemperature
+    ) {
+
+      previousFanStatus = true;
+
+
+      Serial.println(
+        "Temperature reached 40°C -> FAN ON"
+      );
+    }
+
+
+    // =================================================
+    // 30°C OR LOWER -> FAN OFF
+    // =================================================
+
+    else if (
+      temperature <= fanOffTemperature
+    ) {
+
+      previousFanStatus = false;
+
+
+      Serial.println(
+        "Temperature dropped to 30°C -> FAN OFF"
+      );
+    }
+
+
+    // =================================================
+    // BETWEEN 30°C AND 40°C
+    // =================================================
+
+    else {
+
+      Serial.println(
+        "Temperature between 30°C and 40°C -> keeping previous fan state"
+      );
+    }
+
+
+    fanStatus =
+      previousFanStatus;
+  }
+
+
+  // ===================================================
+  // APPLY FAN
+  // ===================================================
+
+  applyFan(
+    fanStatus
+  );
+
+
+  // ===================================================
+  // UPDATE OLED
+  // ===================================================
+
+  updateOLED(
+    temperature,
+    humidity,
+    fanStatus,
+    systemOn
+  );
+
+
+  // ===================================================
+  // SERIAL MONITOR
   // ===================================================
 
   Serial.println();
-  Serial.println("==============================");
 
-  Serial.print("Temperature: ");
-  Serial.print(temperature, 1);
-  Serial.println(" °C");
-
-
-  Serial.print("Humidity: ");
-  Serial.print(humidity, 1);
-  Serial.println(" %");
+  Serial.println(
+    "=============================="
+  );
 
 
-  Serial.print("Fan status: ");
+  Serial.print(
+    "Temperature: "
+  );
 
-  if (fanStatus) {
 
-    Serial.println("ON");
+  Serial.print(
+    temperature,
+    1
+  );
+
+
+  Serial.println(
+    " °C"
+  );
+
+
+  Serial.print(
+    "Humidity: "
+  );
+
+
+  Serial.print(
+    humidity,
+    1
+  );
+
+
+  Serial.println(
+    " %"
+  );
+
+
+  Serial.print(
+    "Fan status: "
+  );
+
+
+  if (
+    fanStatus
+  ) {
+
+    Serial.println(
+      "ON"
+    );
 
   } else {
 
-    Serial.println("OFF");
+    Serial.println(
+      "OFF"
+    );
   }
 
 
-  Serial.println("==============================");
+  Serial.println(
+    "=============================="
+  );
 
 
   // ===================================================
@@ -719,7 +1448,13 @@ void loop() {
   // ===================================================
 
   Serial.println();
-  Serial.println("Waiting 5 seconds...");
 
-  delay(5000);
+  Serial.println(
+    "Waiting 5 seconds..."
+  );
+
+
+  delay(
+    5000
+  );
 }

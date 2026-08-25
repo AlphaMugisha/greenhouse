@@ -53,6 +53,10 @@ export default function Dashboard() {
   const flags = implausible(t, h);
   const { dew, vpd } = latest ? deriveMetrics(t, h) : { dew: null, vpd: null };
 
+  const now = new Date();
+  const timeString = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const secondsString = String(now.getSeconds()).padStart(2, "0");
+
   const tempValues = useMemo(() => rows.map(r => Number(r.temperature)), [rows]);
   const humValues = useMemo(() => rows.map(r => Number(r.humidity)), [rows]);
   const co2Values = useMemo(
@@ -126,27 +130,19 @@ export default function Dashboard() {
 
         <section className="pane card grid-full" id="card-co2">
           <div className="card-label">
-            Carbon dioxide
-            <Delta
-              curr={co2}
-              prev={prev ? co2From(Number(prev.temperature), Number(prev.humidity), false) : undefined}
-              digits={0}
-            />
+            Current time
           </div>
           <div className="value-block">
             <div className="value-number">
-              <span className="num" key={latest && latest.created_at}>
-                {Number.isFinite(co2) ? co2 : "--"}
+              <span className="num" key={timeString}>
+                {timeString}
               </span>
-              <span className="unit">ppm</span>
+              <span className="unit">{secondsString}</span>
             </div>
           </div>
-          <div className={"card-note" + (co2 > 800 ? " flag" : "")}>
-            {co2 > 800
-              ? "Elevated CO₂"
-              : "Estimated from temperature and humidity, not measured"}
+          <div className="card-note">
+            System clock updated in real-time
           </div>
-          <Trace id="traceCo2" values={co2Values} />
         </section>
       </div>
 
